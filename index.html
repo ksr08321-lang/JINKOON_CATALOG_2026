@@ -1907,6 +1907,140 @@
     </div>
 
     <div class="page full-img-page"><img src="https://jkimage.com/data/link/%EC%84%A4%20%EC%B9%B4%ED%83%88%EB%A1%9C%EA%B7%B8%20%EC%9D%B4%EB%AF%B8%EC%A7%80/2026%20%EC%84%A4%EC%B9%B4%ED%83%88%EB%A1%9C%EA%B7%B802-2.png"></div>
+  
+  <div id="quotation-sidebar" style="position: fixed; top: 10px; right: 10px; width: 340px; background: #fff; border: 2px solid #8d705c; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 9999; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; max-height: 90vh;">
+    <div style="background: #8d705c; color: white; padding: 15px; border-radius: 9px 9px 0 0; text-align: center;">
+        <h3 style="margin: 0; font-size: 18px;">📋 수량 선택 견적서</h3>
+    </div>
+    
+    <div id="quotation-list" style="padding: 15px; overflow-y: auto; flex-grow: 1; font-size: 13px;">
+        <p id="empty-msg" style="color: #999; text-align: center; padding: 20px 0;">상품을 클릭하면 담깁니다.</p>
+        <table style="width: 100%; border-collapse: collapse; display: none;" id="quote-table">
+            <thead>
+                <tr style="border-bottom: 2px solid #eee; text-align: left; font-size: 12px; color: #666;">
+                    <th style="padding: 8px 0;">상품명</th>
+                    <th style="text-align: center; width: 60px;">수량</th>
+                    <th style="text-align: right; width: 80px;">금액</th>
+                </tr>
+            </thead>
+            <tbody id="quote-body"></tbody>
+        </table>
+    </div>
+
+    <div style="padding: 15px; background: #f9f9f9; border-top: 1px solid #eee; border-radius: 0 0 12px 12px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 18px; margin-bottom: 10px;">
+            <span>총 견적액</span>
+            <span style="color: #b33939;"><span id="total-price-display">0</span>원</span>
+        </div>
+        <button onclick="copyToClipboard()" style="width: 100%; background: #8d705c; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 700;">견적 내역 복사하기</button>
+    </div>
+</div>
+
+<script>
+    let basket = {}; 
+
+    // 페이지 로드 시 모든 상품 박스에 자동 클릭 기능 부여
+    window.onload = function() {
+        const productBoxes = document.querySelectorAll('.grid-box, .hero-item');
+        productBoxes.forEach(box => {
+            box.style.cursor = 'pointer';
+            box.addEventListener('click', function() {
+                // 상품명과 가격 추출
+                const nameEl = this.querySelector('.line-2');
+                const priceEl = this.querySelector('.current-prc');
+                
+                if (nameEl && priceEl) {
+                    const name = nameEl.innerText.split('\n')[0].trim();
+                    const price = parseInt(priceEl.innerText.replace(/,/g, ''));
+                    addItem(name, price);
+                }
+            });
+        });
+    };
+
+    function addItem(name, price) {
+        if (basket[name]) {
+            basket[name].count++;
+        } else {
+            basket[name] = { price: price, count: 1 };
+        }
+        renderQuote();
+    }
+
+    function changeCount(name, delta) {
+        basket[name].count += delta;
+        if (basket[name].count <= 0) delete basket[name];
+        renderQuote();
+    }
+
+    function renderQuote() {
+        const body = document.getElementById('quote-body');
+        const table = document.getElementById('quote-table');
+        const empty = document.getElementById('empty-msg');
+        let total = 0;
+        
+        body.innerHTML = '';
+        const keys = Object.keys(basket);
+
+        if (keys.length === 0) {
+            table.style.display = 'none';
+            empty.style.display = 'block';
+            document.getElementById('total-price-display').innerText = '0';
+            return;
+        }
+
+        table.style.display = 'table';
+        empty.style.display = 'none';
+
+        keys.forEach(name => {
+            const item = basket[name];
+            const sum = item.price * item.count;
+            total += sum;
+
+            const row = body.insertRow();
+            row.innerHTML = `
+                <td style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                    <strong>${name}</strong><br>
+                    <span style="color:#999; font-size:11px;">${item.price.toLocaleString()}원</span>
+                </td>
+                <td style="text-align: center; border-bottom: 1px solid #eee;">
+                    <div style="display:flex; align-items:center; justify-content:center; gap:5px;">
+                        <button onclick="event.stopPropagation(); changeCount('${name}', -1)" style="border:1px solid #ddd; background:#fff; width:22px; height:22px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">-</button>
+                        <span style="min-width:15px;">${item.count}</span>
+                        <button onclick="event.stopPropagation(); changeCount('${name}', 1)" style="border:1px solid #ddd; background:#fff; width:22px; height:22px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">+</button>
+                    </div>
+                </td>
+                <td style="text-align: right; border-bottom: 1px solid #eee; font-weight:700;">
+                    ${sum.toLocaleString()}원
+                </td>
+            `;
+        });
+        document.getElementById('total-price-display').innerText = total.toLocaleString();
+    }
+
+    function copyToClipboard() {
+        const keys = Object.keys(basket);
+        if (keys.length === 0) return alert("선택된 상품이 없습니다.");
+        
+        let text = "[[ 2026 설 선물 견적서 ]]\n\n";
+        let total = 0;
+        keys.forEach((name, idx) => {
+            const item = basket[name];
+            const sum = item.price * item.count;
+            text += `${idx + 1}. ${name}\n   수량: ${item.count}개 / 금액: ${sum.toLocaleString()}원\n`;
+            total += sum;
+        });
+        text += `\n──────────────────\n총 견적 합계: ${total.toLocaleString()}원`;
+        
+        const tempElem = document.createElement('textarea');
+        tempElem.value = text;
+        document.body.appendChild(tempElem);
+        tempElem.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempElem);
+        alert("견적 내역이 복사되었습니다! 메신저나 엑셀에 붙여넣으세요.");
+    }
+</script>
 
 </body>
 </html>
